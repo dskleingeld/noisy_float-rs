@@ -335,6 +335,70 @@ impl<'de, F: Float + Deserialize<'de>, C: FloatChecker<F>> Deserialize<'de> for 
     }
 }
 
+
+
+use rand::distributions::uniform::{Uniform, SampleUniform,
+        UniformSampler, UniformFloat, SampleBorrow};
+use rand::prelude::*;
+
+// // struct MyF32(types::R32);
+// type MyF32 = types::R32;
+
+// #[derive(Clone, Copy, Debug)]
+// struct UniformMyF32(UniformFloat<f32>);
+
+// impl UniformSampler for UniformMyF32 {
+//     type X = MyF32;
+//     fn new<B1, B2>(low: B1, high: B2) -> Self
+//         where B1: SampleBorrow<Self::X> + Sized,
+//               B2: SampleBorrow<Self::X> + Sized
+//     {
+//         UniformMyF32(UniformFloat::<f32>::new(low.borrow().0.value, high.borrow().0.value))
+//     }
+//     fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
+//         where B1: SampleBorrow<Self::X> + Sized,
+//               B2: SampleBorrow<Self::X> + Sized
+//     {
+//         UniformSampler::new(low, high)
+//     }
+//     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::X {
+//         types::r32(self.0.sample(rng))
+//     }
+// }
+
+// impl SampleUniform for MyF32 {
+//     type Sampler = UniformMyF32;
+// }
+// #[derive(Clone, Debug)]
+// struct UniformNoisyFloat<F: Float + Sized, C: FloatChecker<F>>(NoisyFloat<F,C>);
+// impl<F: Float + Sized, C: Clone + FloatChecker<F>> Copy for UniformNoisyFloat<F,C> {}
+
+#[derive(Clone, Copy, Debug)]
+pub struct UniformMyF32<C>(UniformFloat<f32>, PhantomData<C>);
+
+impl<C: FloatChecker<f32>> UniformSampler for UniformMyF32<C> {
+    type X = NoisyFloat<f32,C>;
+    fn new<B1, B2>(low: B1, high: B2) -> Self
+        where B1: SampleBorrow<Self::X> + Sized,
+              B2: SampleBorrow<Self::X> + Sized
+    {
+        UniformMyF32(UniformFloat::<f32>::new(low.borrow().value, high.borrow().value), PhantomData)
+    }
+    fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
+        where B1: SampleBorrow<Self::X> + Sized,
+              B2: SampleBorrow<Self::X> + Sized
+    {
+        UniformSampler::new(low, high)
+    }
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::X {
+        NoisyFloat{value: self.0.sample(rng), checker: PhantomData}
+    }
+}
+
+impl<C: FloatChecker<f32>> SampleUniform for NoisyFloat<f32,C> {
+    type Sampler = UniformMyF32<C>;
+}
+
 #[cfg(test)]
 mod tests {
     extern crate std;
@@ -533,5 +597,25 @@ mod tests {
         assert_abs_diff_eq!(lhs, rhs);
         assert_relative_eq!(lhs, rhs);
         assert_ulps_eq!(lhs, rhs);
+    }
+
+    #[test]
+    fn test_rand_sampler() {
+        use rand::prelude::*;
+        use rand::distributions::uniform::Uniform;
+        let (low, high) = (r32(17.0), r32(22.0));
+        let uniform = Uniform::new(low,high);
+        let x = uniform.sample(&mut thread_rng());
+    }
+
+    #[test]
+    fn test_rng_sample() {
+        use rand::prelude::*;
+        use rand::distributions::uniform::Uniform;
+        let mut rng = rand::thread_rng();
+        let a: R32 = rng.sample(Uniform::new(r32(0f32), r32(10f32)));
+        // let b: R64 = rng.gen();
+        // let d: N32 = rng.gen();
+        // let c: N64 = rng.gen();
     }
 }
