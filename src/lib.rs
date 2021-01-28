@@ -399,6 +399,32 @@ impl<C: FloatChecker<f32>> SampleUniform for NoisyFloat<f32,C> {
     type Sampler = UniformMyF32<C>;
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct UniformMyF64<C>(UniformFloat<f64>, PhantomData<C>);
+
+impl<C: FloatChecker<f64>> UniformSampler for UniformMyF64<C> {
+    type X = NoisyFloat<f64,C>;
+    fn new<B1, B2>(low: B1, high: B2) -> Self
+        where B1: SampleBorrow<Self::X> + Sized,
+              B2: SampleBorrow<Self::X> + Sized
+    {
+        UniformMyF64(UniformFloat::<f64>::new(low.borrow().value, high.borrow().value), PhantomData)
+    }
+    fn new_inclusive<B1, B2>(low: B1, high: B2) -> Self
+        where B1: SampleBorrow<Self::X> + Sized,
+              B2: SampleBorrow<Self::X> + Sized
+    {
+        UniformSampler::new(low, high)
+    }
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::X {
+        NoisyFloat{value: self.0.sample(rng), checker: PhantomData}
+    }
+}
+
+impl<C: FloatChecker<f64>> SampleUniform for NoisyFloat<f64,C> {
+    type Sampler = UniformMyF64<C>;
+}
+
 #[cfg(test)]
 mod tests {
     extern crate std;
